@@ -135,7 +135,7 @@ class Institution(models.Model):
     name = models.CharField(max_length=255)
     address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, blank=True)
     contact = models.ForeignKey(Contact, on_delete=models.SET_NULL, null=True, blank=True)
-    services_or_productions = models.TextField()
+    services_or_productions = models.JSONField(default=list)
     payment = models.ForeignKey(AnnualMembershipFee, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
