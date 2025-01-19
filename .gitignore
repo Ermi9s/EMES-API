@@ -1,3 +1,101 @@
 vemes
 db.sqlite3
 __pycache__
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Django secret key and settings
+.env
+*.env
+settings_local.py
+config/settings/local.py
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Media and static files
+media/
+staticfiles/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Database files
+*.sqlite3
+*.db
+
+# Migrations
+**/migrations/*
+!**/migrations/__init__.py
+
+# Pytest and test coverage reports
+.pytest_cache/
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+
+# IDE / Editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+*.~lock.*
+
+# Package managers
+*.egg-info/
+*.eggs/
+dist/
+build/
+*.wheel
+
+# Celery beat schedule
+celerybeat-schedule
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Static analysis tools
+.mypy_cache/
+.pyre/
+.pytype/
+.pylint.d/
+
+# Heroku
+*.pid
+.heroku/
+
+# JetBrains
+.idea/
+
+# Coverage reports
+htmlcov/
+
+# Terraform (if deploying)
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+
+# Yarn
+.yarn

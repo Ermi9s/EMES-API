@@ -88,7 +88,7 @@ class Award(models.Model):
 
 # Annual Membership Fee Model
 class AnnualMembershipFee(models.Model):
-    receipt = models.CharField(max_length=255)
+    receipt = models.FileField(upload_to='receipt/')
     status = models.CharField(max_length=100)
 
     def __str__(self):
