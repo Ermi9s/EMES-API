@@ -31,12 +31,14 @@ class ContactSerializer(serializers.ModelSerializer):
 
 
 class EducationSerializer(serializers.ModelSerializer):
+    degree_file_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Education
-        fields = [
-            'id', 'highest_degree', 'field_of_study', 'university', 
-            'graduation_year', 'specialization', 'degree_file'
-        ]
+        fields = ['id', 'highest_degree', 'field_of_study', 'degree_file_url']
+
+    def get_degree_file_url(self, obj):
+        return obj.degree_file.url if obj.degree_file else None
 
 
 class ProfessionalExperienceSerializer(serializers.ModelSerializer):
@@ -72,9 +74,13 @@ class AwardSerializer(serializers.ModelSerializer):
 
 
 class AnualMembershipFeeSerializer(serializers.ModelSerializer):
+    receipt_url = serializers.SerializerMethodField()
     class Meta:
         model = AnualMembershipFee
-        fields = ['id', 'receipt', 'status']
+        fields = ['id', 'receipt_url', 'status'] 
+
+    def get_receipt_url(self, obj):
+        return obj.receipt.url if obj.receipt else None
 
 
 class ViewRequestsSerializer(serializers.ModelSerializer):
