@@ -15,8 +15,8 @@ router.register(r'annual_membership_fees', AnualMembershipFeeViewSet)
 
 
 urlpatterns = [
-    path('register/' , register , name='register'),
-    path('login/', login , name='login'),
+    path('/register/' , register , name='register'),
+    path('/login/', login , name='login'),
 
     path('/users/', UserFetch.as_view(), name='user_list'),
     path('/users/<int:user_id>/', UserFetch.as_view(), name='user_detail'),
