@@ -54,7 +54,7 @@ class ProfessionalExperienceSerializer(serializers.ModelSerializer):
 class PublicationsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Publications
-        fields = ['id', 'title', 'jornal', 'date']
+        fields = ['id', 'title', 'journal', 'date']
 
 
 class ProjectsSerializer(serializers.ModelSerializer):
