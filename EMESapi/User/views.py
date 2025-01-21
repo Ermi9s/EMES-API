@@ -23,6 +23,46 @@ from .serializer import (
 )
 
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_admin(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    # Validate input data
+    if not username  or not password:
+        return Response(
+            {"message": "Username and password are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+    if User.objects.filter(username=username).exists():
+        return Response(
+            {"message": "A user with this username already exists."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            verified=True, 
+            is_staff=True,
+        )
+    except Exception as e:
+        return Response(
+            {"message": f"Error creating user: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    return Response(
+        {"message": f"User {user.username} has been successfully registered as an admin."},
+        status=status.HTTP_201_CREATED
+    )
+
+
 @permission_classes([AllowAny])
 @api_view(['POST'])
 def register(request):
@@ -125,140 +165,140 @@ class UserRegistrationUpdates(APIView):
         )
 
 
-class UserFetch(APIView):
-    serializer_class = UserSerializer
+@api_view(['GET'])
+def get_users(request, user_id=None):
 
-    def get(self, request, user_id=None):
- 
-        fields_to_return = ["id", "username", "full_name", "nationality"]
+    fields_to_return = ["id", "username", "full_name", "nationality"]
 
-        if user_id:
-            user = get_object_or_404(User, id=user_id)
-            # Serialize only the allowed fields
-            user_data = {field: getattr(user, field, None) for field in fields_to_return}
-            return Response(user_data, status=status.HTTP_200_OK)
-        else:
-            users = User.objects.filter(verified=True)
-            users_data = [
-                {field: getattr(user, field, None) for field in fields_to_return} 
-                for user in users
-            ]
-            return Response(users_data, status=status.HTTP_200_OK)
-
-    def post(self, request, user_id):
-            """
-            Create a request to view a user's full information.
-            Only verified users can make this request.
-            """
-
-            requesting_user = request.user
-            if not requesting_user.verified:
-                return Response(
-                    {"message": "You must be a verified user to request full information."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            user_to_view = get_object_or_404(User, id=user_id)
-
-            existing_request = ViewRequests.objects.filter(
-                issuer=requesting_user, requested_user=user_to_view
-            ).exists()
-
-            if existing_request:
-                return Response(
-                    {"message": "You have already made a request to view this user's full information."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            view_request = ViewRequests.objects.create(
-                issuer=requesting_user,
-                requested_user=user_to_view
-            )
-
-            return Response(
-                {"message": f"Request to view {user_to_view.username}'s full information has been sent."},
-                status=status.HTTP_201_CREATED
-            )
-
-class AdminUserView(APIView):
-    permission_classes = [IsAuthenticated , IsAdminUser] 
-    serializer_class = UserSerializer
-
-    def get(self, request, user_id=None, status_filter=None):
-        """
-        Fetch users with different filters:
-        - Fetch all users (admin only).
-        - Fetch only verified users (admin only).
-        - Fetch only unverified users (admin only).
-        """
-
-        if user_id:
-            user = get_object_or_404(User, id=user_id)
-            serializer = UserSerializer(user)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        elif status_filter:
-            if status_filter == "verified":
-                users = User.objects.filter(verified=True)
-            elif status_filter == "unverified":
-                users = User.objects.filter(verified=False)
-            else:
-                return Response(
-                    {"message": "Invalid status filter. Use 'verified' or 'unverified'."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        else:
-            users = User.objects.all()
+    if user_id:
+        user = get_object_or_404(User, id=user_id)
+        user_data = {field: getattr(user, field, None) for field in fields_to_return}
+        return Response(user_data, status=status.HTTP_200_OK)
+    else:
+        users = User.objects.filter(verified=True , is_staff = False)
+        users_data = [
+            {field: getattr(user, field, None) for field in fields_to_return} 
+            for user in users
+        ]
+        return Response(users_data, status=status.HTTP_200_OK)
 
 
-        serializer = UserSerializer(users, many=True)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_view_request(request, user_id):
+
+    requesting_user = request.user
+    if not requesting_user.verified:
+        return Response(
+            {"message": "You must be a verified user to request full information."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user_to_view = get_object_or_404(User, id=user_id)
+
+    existing_request = ViewRequests.objects.filter(
+        issuer=requesting_user, requested_user=user_to_view
+    ).exists()
+
+    if existing_request:
+        return Response(
+            {"message": "You have already made a request to view this user's full information."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    _ = ViewRequests.objects.create(
+        issuer=requesting_user,
+        requested_user=user_to_view
+    )
+
+    return Response(
+        {"message": f"Request to view {user_to_view.username}'s full information has been sent."},
+        status=status.HTTP_201_CREATED
+    )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def fetch_users(request, user_id=None):
+    if user_id:
+        user = get_object_or_404(User, id=user_id)
+        serializer = UserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+    status_filter = request.query_params.get('status', None)
 
-    def delete(self, request, request_id):
-        """
-        Admin approves the request to view a user's full information.
-        Once approved, send an email to the requesting user and delete the request.
-        """
-     
-        view_request = get_object_or_404(ViewRequests, id=request_id)
-        requested_user = view_request.requested_user
+    if status_filter:
+        if status_filter == "verified":
+            users = User.objects.filter(verified=True)
+        elif status_filter == "unverified":
+            users = User.objects.filter(verified=False)
+        else:
+            return Response(
+                {"message": "Invalid status filter. Use 'verified' or 'unverified'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    else:
+        users = User.objects.all()
 
-        full_info = {
-            'full_name': requested_user.full_name,
-            'sex': requested_user.sex,
-            'date_of_birth': requested_user.date_of_birth,
-            'nationality': requested_user.nationality,
-            'address': requested_user.address,
-            'contact': requested_user.contact,
-            'education': requested_user.educational,
-            'professional_experience': requested_user.professional_experience,
-            'projects': requested_user.projects,
-            'awards': requested_user.awards,
-            'publications': requested_user.publications,
-            'patents': requested_user.patents,
-        }
+    serializer = UserSerializer(users, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
-        issuer_email = view_request.issuer.contact.email
-        admin_email = request.user.contact.email
-        
 
-        html_body = generate_html_email_body(full_info)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def approve_request(request, request_id):
 
-        send_mail(
-            subject="Your Requested User Information",
-            message='',
-            from_email=admin_email,
-            recipient_list=[issuer_email],
-            html_message=html_body,
-        )
+    view_request = get_object_or_404(ViewRequests, id=request_id)
+    requested_user = view_request.requested_user
 
-        view_request.delete()
+    full_info = {
+        'full_name': requested_user.full_name,
+        'sex': requested_user.sex,
+        'date_of_birth': requested_user.date_of_birth,
+        'nationality': requested_user.nationality,
+        'address': requested_user.address,
+        'contact': requested_user.contact,
+        'education': requested_user.educational_background,
+        'professional_experience': requested_user.professional_experience,
+        'projects': requested_user.projects,
+        'awards': requested_user.awards,
+        'publications': requested_user.publications,
+        'patents': requested_user.patents,
+    }
 
-        return Response(
-            {"message": "Request granted and email sent to the requester."},
-            status=status.HTTP_200_OK
-        )
+    issuer_email = view_request.issuer.contact.email
+    admin_email = request.user.contact.email
+
+    html_body = generate_html_email_body(full_info)
+
+
+    send_mail(
+        subject="Your Requested User Information",
+        message='',
+        from_email=admin_email,
+        recipient_list=[issuer_email],
+        html_message=html_body,
+    )
+
+    view_request.delete()
+
+    return Response(
+        {"message": "Request approved and email sent to the requester."},
+        status=status.HTTP_200_OK
+    )
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def reject_request(request, request_id):
+    view_request = get_object_or_404(ViewRequests, id=request_id)
+
+    view_request.delete()
+
+    return Response(
+        {"message": "Request rejected successfully."},
+        status=status.HTTP_200_OK
+    )
+
     
 class UserManagementView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
@@ -298,8 +338,6 @@ class UserManagementView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-
-
 
 class AddressViewSet(viewsets.ModelViewSet):
     queryset = Address.objects.all()
