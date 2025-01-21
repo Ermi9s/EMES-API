@@ -79,6 +79,7 @@ def login(request):
         
 class UserRegistrationUpdates(APIView):
     permission_classes = [IsAuthenticated]
+    serializer_class =  UserSerializer
 
     def post(self, request, action):
         user = request.user
