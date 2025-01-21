@@ -1,26 +1,27 @@
 from rest_framework import serializers
 from .models import (
     User, Address, Contact, Education, ProfessionalExperience,
-    Publications, Projects, Patents, Award, AnualMembershipFee, ViewRequests, Institution
+    Publications, Projects, Patents, Award, AnnualMembershipFee, ViewRequests
 )
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
     class Meta:
         model = User
         fields = [
             'id', 'username', 'password', 'full_name', 'sex', 'date_of_birth', 
-            'nationality', 'is_Admin', 'address', 'contact', 
-            'educational_background', 'professional_experience', 
+            'nationality', 'address', 'contact', 
+            'education', 'professional_experience','services_or_productions',
             'projects', 'awards', 'publications', 'patents', 
-            'Payment', 'verified'
+            'payment', 'verified'
         ]
         extra_kwargs = {'password': {'write_only': True}}
-
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
-        fields = ['id', 'residential', 'employer', 'city', 'country']
+        fields = '__all__'
 
 
 
@@ -76,7 +77,7 @@ class AwardSerializer(serializers.ModelSerializer):
 class AnualMembershipFeeSerializer(serializers.ModelSerializer):
     receipt_url = serializers.SerializerMethodField()
     class Meta:
-        model = AnualMembershipFee
+        model = AnnualMembershipFee
         fields = ['id', 'receipt_url', 'status'] 
 
     def get_receipt_url(self, obj):
@@ -88,8 +89,3 @@ class ViewRequestsSerializer(serializers.ModelSerializer):
         model = ViewRequests
         fields = ['id', 'issuer', 'requested_user']
 
-
-class InstitutionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Institution
-        fields = ['id', 'name', 'address', 'contact', 'services_or_productions', 'payment']

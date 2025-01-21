@@ -1,127 +1,305 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.views import APIView
+from rest_framework.decorators import api_view,permission_classes,action
+from utils.emailbody import generate_html_email_body
+from rest_framework.permissions import IsAuthenticated,AllowAny,IsAdminUser
+from django.contrib.auth import authenticate
+from django.shortcuts import get_object_or_404
+from django.conf import settings
+from django.core.mail import send_mail
+from django.contrib.auth.hashers import make_password
+from rest_framework.authtoken.models import Token
+from utils.permisions import IsOwnerOrAdmin
+
 from .models import (
     User, Address, Contact, Education, ProfessionalExperience,
-    Publications, Projects, Patents, Award, AnualMembershipFee, ViewRequests, Institution
+    Publications, Projects, Patents, Award, AnnualMembershipFee, ViewRequests,
 )
 from .serializer import (
     UserSerializer, AddressSerializer, ContactSerializer, EducationSerializer,
     ProfessionalExperienceSerializer, PublicationsSerializer, ProjectsSerializer,
-    PatentsSerializer, AwardSerializer, AnualMembershipFeeSerializer, ViewRequestsSerializer,
-    InstitutionSerializer
+    PatentsSerializer, AwardSerializer, AnualMembershipFeeSerializer,
 )
 
 
-class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+@permission_classes([AllowAny])
+@api_view(['POST'])
+def register(request):
+    if request.method == 'POST':
+        serializer = UserSerializer(data=request.data, partial = True)
 
-    def create(self, request, *args, **kwargs):
-        """
-        Override the create method to handle user registration.
-        This includes password hashing and custom validation.
-        """
-        data = request.data
+        if serializer.is_valid():
+            password = serializer.validated_data.get('password')
+            if password:
+                hashed_password = make_password(password)
+                serializer.validated_data['password'] = hashed_password
+            user = serializer.save()
+            token = Token.objects.create(user=user)
 
-        # Ensure password confirmation matches (if provided)
-        if data.get("password") != data.get("confirm_password"):
             return Response(
-                {"error": "Passwords do not match."}, 
+                {
+                    "token" : token.key,
+                    "user" : serializer.data,
+                    "message" : "User created successfully",
+                },
+                status=status.HTTP_201_CREATED
+            )
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+@permission_classes([AllowAny])
+@api_view(['POST'])
+def login(request):
+    if request.method == 'POST':
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        user = authenticate(request, username=username, password=password)
+        # print(password , user)
+        if user is not None:
+            token,_ = Token.objects.get_or_create(user=user)
+            data = UserSerializer(user).data
+            return Response(
+                {
+                    "token" : token.key,
+                    "user" : data,
+                    "message" : "login successful",
+                },
+                status=status.HTTP_200_OK
+            )
+        return Response(
+            {
+                "message" : "login failed",
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+class UserRegistrationUpdates(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, action):
+        user = request.user
+        if not user:
+            return Response(
+                {"message": "User not found with token"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
+        actions_map = {
+            "add_address": (AddressSerializer, "address"),
+            "add_contact": (ContactSerializer, "contact"),
+            "add_education": (EducationSerializer, "educational_background"),
+            "add_professional_experience": (ProfessionalExperienceSerializer, "professional_experience"),
+            "add_projects": (ProjectsSerializer, "projects"),
+            "add_awards": (AwardSerializer, "awards"),
+            "add_publications": (PublicationsSerializer, "publications"),
+            "add_patents": (PatentsSerializer, "patents"),
+            "add_payment": (AnualMembershipFeeSerializer, "payment"),
+        }
 
-        # Hash the password before saving
-        user = serializer.save(password=make_password(data["password"]))
+        if action not in actions_map:
+            return Response(
+                {"message": "Invalid action"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer_class, user_field = actions_map[action]
+        serializer = serializer_class(data=request.data)
+
+        if serializer.is_valid():
+            saved_instance = serializer.save()
+            setattr(user, user_field, saved_instance) 
+            user.save()
+            return Response(
+                {"message": f"{action.replace('_', ' ').title()} added successfully"},
+                status=status.HTTP_202_ACCEPTED
+            )
+
         return Response(
-            {"message": "User created successfully.", "user": serializer.data},
-            status=status.HTTP_201_CREATED,
+            {"message": "Serializer failed", "errors": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
         )
 
-    def update(self, request, *args, **kwargs):
+
+class UserFetch(APIView):
+    def get(self, request, user_id=None):
+ 
+        fields_to_return = ["id", "username", "full_name", "nationality"]
+
+        if user_id:
+            user = get_object_or_404(User, id=user_id)
+            # Serialize only the allowed fields
+            user_data = {field: getattr(user, field, None) for field in fields_to_return}
+            return Response(user_data, status=status.HTTP_200_OK)
+        else:
+            users = User.objects.filter(verified=True)
+            users_data = [
+                {field: getattr(user, field, None) for field in fields_to_return} 
+                for user in users
+            ]
+            return Response(users_data, status=status.HTTP_200_OK)
+
+    def post(self, request, user_id):
+            """
+            Create a request to view a user's full information.
+            Only verified users can make this request.
+            """
+
+            requesting_user = request.user
+            if not requesting_user.verified:
+                return Response(
+                    {"message": "You must be a verified user to request full information."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            user_to_view = get_object_or_404(User, id=user_id)
+
+            existing_request = ViewRequests.objects.filter(
+                issuer=requesting_user, requested_user=user_to_view
+            ).exists()
+
+            if existing_request:
+                return Response(
+                    {"message": "You have already made a request to view this user's full information."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            view_request = ViewRequests.objects.create(
+                issuer=requesting_user,
+                requested_user=user_to_view
+            )
+
+            return Response(
+                {"message": f"Request to view {user_to_view.username}'s full information has been sent."},
+                status=status.HTTP_201_CREATED
+            )
+
+class AdminUserView(APIView):
+    permission_classes = [IsAuthenticated , IsAdminUser] 
+
+    def get(self, request, user_id=None, status_filter=None):
         """
-        Override the update method to allow partial updates (e.g., change password or email).
+        Fetch users with different filters:
+        - Fetch all users (admin only).
+        - Fetch only verified users (admin only).
+        - Fetch only unverified users (admin only).
         """
-        user = self.get_object()
-        data = request.data
 
-        if "password" in data:
-            user.set_password(data["password"])
-        if "email" in data:
-            user.email = data["email"]
+        if user_id:
+            user = get_object_or_404(User, id=user_id)
+            serializer = UserSerializer(user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
-        serializer = self.get_serializer(user, data=data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+        elif status_filter:
+            if status_filter == "verified":
+                users = User.objects.filter(verified=True)
+            elif status_filter == "unverified":
+                users = User.objects.filter(verified=False)
+            else:
+                return Response(
+                    {"message": "Invalid status filter. Use 'verified' or 'unverified'."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            users = User.objects.all()
 
-        return Response(
-            {"message": "User updated successfully.", "user": serializer.data},
-            status=status.HTTP_200_OK,
+
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+    def delete(self, request, request_id):
+        """
+        Admin approves the request to view a user's full information.
+        Once approved, send an email to the requesting user and delete the request.
+        """
+     
+        view_request = get_object_or_404(ViewRequests, id=request_id)
+        requested_user = view_request.requested_user
+
+        full_info = {
+            'full_name': requested_user.full_name,
+            'sex': requested_user.sex,
+            'date_of_birth': requested_user.date_of_birth,
+            'nationality': requested_user.nationality,
+            'address': requested_user.address,
+            'contact': requested_user.contact,
+            'education': requested_user.educational,
+            'professional_experience': requested_user.professional_experience,
+            'projects': requested_user.projects,
+            'awards': requested_user.awards,
+            'publications': requested_user.publications,
+            'patents': requested_user.patents,
+        }
+
+        issuer_email = view_request.issuer.contact.email
+        admin_email = request.user.contact.email
+        
+
+        html_body = generate_html_email_body(full_info)
+
+        send_mail(
+            subject="Your Requested User Information",
+            message='',
+            from_email=admin_email,
+            recipient_list=[issuer_email],
+            html_message=html_body,
         )
 
-    @action(detail=True, methods=["post"])
-    def verify_user(self, request, pk=None):
-        """
-        Custom action to verify a user.
-        """
-        user = self.get_object()
-        if user.verified:
-            return Response({"message": "User is already verified."}, status=status.HTTP_400_BAD_REQUEST)
+        view_request.delete()
 
-        user.verified = True
-        user.save()
-        return Response({"message": "User verified successfully."}, status=status.HTTP_200_OK)
+        return Response(
+            {"message": "Request granted and email sent to the requester."},
+            status=status.HTTP_200_OK
+        )
+    
+class UserManagementView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
-    @action(detail=True, methods=["post"])
-    def deactivate_user(self, request, pk=None):
-        """
-        Custom action to deactivate a user account.
-        """
-        user = self.get_object()
-        if not user.is_active:
-            return Response({"message": "User is already deactivated."}, status=status.HTTP_400_BAD_REQUEST)
+    def patch(self, request, action, user_id):
+        user = get_object_or_404(User, id=user_id)
 
-        user.is_active = False
-        user.save()
-        return Response({"message": "User account deactivated successfully."}, status=status.HTTP_200_OK)
+        if action == "verify_user":
+            if user.verified:
+                return Response(
+                    {"message": "User is already verified."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            user.verified = True
+            user.save()
+            return Response(
+                {"message": f"User {user.username} has been verified successfully."},
+                status=status.HTTP_200_OK
+            )
 
-    @action(detail=True, methods=["post"])
-    def activate_user(self, request, pk=None):
-        """
-        Custom action to activate a user account.
-        """
-        user = self.get_object()
-        if user.is_active:
-            return Response({"message": "User is already active."}, status=status.HTTP_400_BAD_REQUEST)
+        elif action == "make_admin":
+            if user.is_admin:
+                return Response(
+                    {"message": "User is already an admin."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            user.is_staff = True
+            user.save()
+            return Response(
+                {"message": f"User {user.username} has been promoted to admin successfully."},
+                status=status.HTTP_200_OK
+            )
 
-        user.is_active = True
-        user.save()
-        return Response({"message": "User account activated successfully."}, status=status.HTTP_200_OK)
+        return Response(
+            {"message": "Invalid action. Use 'verify_user' or 'make_admin'."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
 
-    @action(detail=False, methods=["get"])
-    def verified_users(self, request):
-        """
-        List all verified users.
-        """
-        verified_users = User.objects.filter(verified=True)
-        serializer = self.get_serializer(verified_users, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=["get"])
-    def active_users(self, request):
-        """
-        List all active users.
-        """
-        active_users = User.objects.filter(is_active=True)
-        serializer = self.get_serializer(active_users, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class AddressViewSet(viewsets.ModelViewSet):
     queryset = Address.objects.all()
     serializer_class = AddressSerializer
+    permission_classes = [IsOwnerOrAdmin]
 
     def create(self, request, *args, **kwargs):
         # Validate and create an address
@@ -134,6 +312,7 @@ class AddressViewSet(viewsets.ModelViewSet):
 class ContactViewSet(viewsets.ModelViewSet):
     queryset = Contact.objects.all()
     serializer_class = ContactSerializer
+    permission_classes = [IsOwnerOrAdmin]
 
     def update(self, request, *args, **kwargs):
         # Custom logic for updating contact details
@@ -147,6 +326,7 @@ class ContactViewSet(viewsets.ModelViewSet):
 class EducationViewSet(viewsets.ModelViewSet):
     queryset = Education.objects.all()
     serializer_class = EducationSerializer
+    permission_classes = [IsOwnerOrAdmin]
 
     @action(detail=False, methods=['get'])
     def highest_degree(self, request):
@@ -159,6 +339,7 @@ class EducationViewSet(viewsets.ModelViewSet):
 class ProfessionalExperienceViewSet(viewsets.ModelViewSet):
     queryset = ProfessionalExperience.objects.all()
     serializer_class = ProfessionalExperienceSerializer
+    permission_classes = [IsOwnerOrAdmin]
 
     @action(detail=False, methods=['get'])
     def by_organization(self, request):
@@ -174,6 +355,7 @@ class ProfessionalExperienceViewSet(viewsets.ModelViewSet):
 class PublicationsViewSet(viewsets.ModelViewSet):
     queryset = Publications.objects.all()
     serializer_class = PublicationsSerializer
+    permission_classes = [IsOwnerOrAdmin]
 
     @action(detail=False, methods=['get'])
     def by_year(self, request):
@@ -189,6 +371,7 @@ class PublicationsViewSet(viewsets.ModelViewSet):
 class ProjectsViewSet(viewsets.ModelViewSet):
     queryset = Projects.objects.all()
     serializer_class = ProjectsSerializer
+    permission_classes = [IsOwnerOrAdmin]
 
     @action(detail=False, methods=['get'])
     def active_projects(self, request):
@@ -201,16 +384,18 @@ class ProjectsViewSet(viewsets.ModelViewSet):
 class PatentsViewSet(viewsets.ModelViewSet):
     queryset = Patents.objects.all()
     serializer_class = PatentsSerializer
+    permission_classes = [IsOwnerOrAdmin]
 
 
 class AwardViewSet(viewsets.ModelViewSet):
     queryset = Award.objects.all()
     serializer_class = AwardSerializer
-
+    permission_classes = [IsOwnerOrAdmin]
 
 class AnualMembershipFeeViewSet(viewsets.ModelViewSet):
-    queryset = AnualMembershipFee.objects.all()
+    queryset = AnnualMembershipFee.objects.all()
     serializer_class = AnualMembershipFeeSerializer
+    permission_classes = [IsOwnerOrAdmin]
 
     @action(detail=True, methods=['post'])
     def update_status(self, request, pk=None):
@@ -223,22 +408,3 @@ class AnualMembershipFeeViewSet(viewsets.ModelViewSet):
             return Response({"message": "Status updated successfully."})
         return Response({"error": "Status field is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-
-class ViewRequestsViewSet(viewsets.ModelViewSet):
-    queryset = ViewRequests.objects.all()
-    serializer_class = ViewRequestsSerializer
-
-
-class InstitutionViewSet(viewsets.ModelViewSet):
-    queryset = Institution.objects.all()
-    serializer_class = InstitutionSerializer
-
-    @action(detail=False, methods=['get'])
-    def by_service(self, request):
-        # Filter institutions by services or productions offered
-        service = request.query_params.get('service', None)
-        if service:
-            institutions = Institution.objects.filter(services_or_productions__icontains=service)
-            serializer = self.get_serializer(institutions, many=True)
-            return Response(serializer.data)
-        return Response({"error": "Service parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
