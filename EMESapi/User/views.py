@@ -125,6 +125,8 @@ class UserRegistrationUpdates(APIView):
 
 
 class UserFetch(APIView):
+    serializer_class = UserSerializer
+
     def get(self, request, user_id=None):
  
         fields_to_return = ["id", "username", "full_name", "nationality"]
@@ -179,6 +181,7 @@ class UserFetch(APIView):
 
 class AdminUserView(APIView):
     permission_classes = [IsAuthenticated , IsAdminUser] 
+    serializer_class = UserSerializer
 
     def get(self, request, user_id=None, status_filter=None):
         """
@@ -258,6 +261,7 @@ class AdminUserView(APIView):
     
 class UserManagementView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
+    serializer_class = UserSerializer
 
     def patch(self, request, action, user_id):
         user = get_object_or_404(User, id=user_id)
