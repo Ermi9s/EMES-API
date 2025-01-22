@@ -11,6 +11,8 @@ from django.core.mail import send_mail
 from django.contrib.auth.hashers import make_password
 from rest_framework.authtoken.models import Token
 from utils.permisions import IsOwnerOrAdmin
+from django.core.files.storage import default_storage
+from rest_framework.exceptions import NotFound
 
 from .models import (
     User, Address, Contact, Education, ProfessionalExperience,
@@ -69,7 +71,11 @@ def register_admin(request):
 @api_view(['POST'])
 def register(request):
     if request.method == 'POST':
-        serializer = UserSerializer(data=request.data, partial = True)
+        is_organization = request.query_params.get('organization', 'false').lower() == 'true'
+
+        request.data['is_organization'] = is_organization
+        
+        serializer = UserSerializer(data=request.data, partial=True)
 
         if serializer.is_valid():
             password = serializer.validated_data.get('password')
@@ -77,16 +83,19 @@ def register(request):
                 hashed_password = make_password(password)
                 serializer.validated_data['password'] = hashed_password
             user = serializer.save()
+
+
             token = Token.objects.create(user=user)
 
             return Response(
                 {
-                    "token" : token.key,
-                    "user" : serializer.data,
-                    "message" : "User created successfully",
+                    "token": token.key,
+                    "user": serializer.data,
+                    "message": "User created successfully",
                 },
                 status=status.HTTP_201_CREATED
             )
+
         return Response(
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
@@ -171,19 +180,30 @@ class UserRegistrationUpdates(APIView):
 
 @api_view(['GET'])
 def get_users(request, user_id=None):
+    fields_to_return = ["id", "username", "full_name", "nationality" , "sex"]
 
-    fields_to_return = ["id", "username", "full_name", "nationality"]
+    organization_filter = request.query_params.get('organization', None)
 
     if user_id:
         user = get_object_or_404(User, id=user_id)
         user_data = {field: getattr(user, field, None) for field in fields_to_return}
         return Response(user_data, status=status.HTTP_200_OK)
     else:
-        users = User.objects.filter(verified=True , is_staff = False)
+        users = User.objects.filter(verified=True, is_staff=False)
+
+        if organization_filter:
+            if organization_filter.lower() == 'true':
+                users = users.filter(is_organization=True)
+            elif organization_filter.lower() == 'false':
+                users = users.filter(is_organization=False)
+            else:
+                return Response({"detail": "Invalid 'organization' filter. Use 'true' or 'false'."}, status=status.HTTP_400_BAD_REQUEST)
+
         users_data = [
-            {field: getattr(user, field, None) for field in fields_to_return} 
+            {field: getattr(user, field, None) for field in fields_to_return}
             for user in users
         ]
+
         return Response(users_data, status=status.HTTP_200_OK)
 
 @csrf_exempt
@@ -303,7 +323,104 @@ def reject_request(request, request_id):
         status=status.HTTP_200_OK
     )
 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_receipt(request):
+    if request.method == 'POST':
+        if 'receipt' not in request.FILES:
+            return Response({'error': 'No receipt file provided'}, status=400)
+
+        receipt_file = request.FILES['receipt']
+
+        file_path = default_storage.save(f'receipt/{receipt_file.name}', receipt_file)
+
+        receipt_url = f'{settings.MEDIA_URL}{file_path}'
+
+        fee = AnnualMembershipFee.objects.create(
+            receipt_url=receipt_url,
+            status='Pending'  
+        )
+
+        serializer = AnualMembershipFeeSerializer(fee)
+        return Response(serializer.data, status=201)
+
+    return Response({'error': 'Invalid request'}, status=400)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_degree(request):
+    if 'degree_file' not in request.FILES:
+        return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+
+    degree_file = request.FILES['degree_file']
+
+    file_path = default_storage.save(f'degrees/{degree_file.name}', degree_file)
+
+    degree_file_url = f'{settings.MEDIA_URL}{file_path}'
+
+    education = Education.objects.create(
+        highest_degree=request.data.get('highest_degree', ''),
+        field_of_study=request.data.get('field_of_study', ''),
+        university=request.data.get('university', ''),
+        graduation_year=request.data.get('graduation_year', ''),
+        specialization=request.data.get('specialization', ''),
+        degree_file=degree_file_url
+    )
+
+    serializer = EducationSerializer(education)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_profile_picture(request):
+
+    user = request.user
+
+    if 'profile_picture' in request.FILES:
+        profile_picture_file = request.FILES['profile_picture']
+
+        file_path = default_storage.save(f'profile_pictures/{profile_picture_file.name}', profile_picture_file)
+        profile_picture_url = f'{settings.MEDIA_URL}{file_path}'
+
+        user.profile_picture = profile_picture_url
+        user.save()
+
+        return Response({
+            'message': 'Profile picture uploaded successfully',
+            'profile_picture_url': profile_picture_url
+        }, status=200)
+    
+    return Response({'error': 'No profile picture provided'}, status=400)   
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_pending_receipts(request):
+  
+    pending_fees = AnnualMembershipFee.objects.filter(status='Pending')
+
+    serializer = AnualMembershipFeeSerializer(pending_fees, many=True)
+
+    return Response(serializer.data, status=200)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdminUser])
+def update_receipt_status(request, receipt_id):
+    try:
+        fee = AnnualMembershipFee.objects.get(id=receipt_id)
+    except AnnualMembershipFee.DoesNotExist:
+        raise NotFound('Receipt not found')
+
+    fee.status = 'Accepted'
+    fee.save()
+
+    serializer = AnualMembershipFeeSerializer(fee)
+    return Response(serializer.data, status=200)
+
 class UserManagementView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = UserSerializer

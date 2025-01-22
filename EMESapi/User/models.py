@@ -28,7 +28,7 @@ class Education(models.Model):
     university = models.CharField(max_length=255)
     graduation_year = models.CharField(max_length=4)
     specialization = models.CharField(max_length=100, blank=True, null=True)
-    degree_file = models.FileField(upload_to='degrees/')
+    degree_file = models.CharField(max_length=255)
 
     def __str__(self):
         return f"{self.highest_degree} in {self.field_of_study}"
@@ -89,7 +89,7 @@ class Award(models.Model):
 
 # Annual Membership Fee Model
 class AnnualMembershipFee(models.Model):
-    receipt = models.FileField(upload_to='receipt/')
+    receipt = models.CharField(max_length=100)
     status = models.CharField(max_length=100)
 
     def __str__(self):
@@ -102,6 +102,7 @@ class User(AbstractUser):
     sex = models.CharField(max_length=20)
     date_of_birth = models.DateTimeField(null=True)
     nationality = models.CharField(max_length=100)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
 
     address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, blank=True)
     contact = models.ForeignKey(Contact, on_delete=models.SET_NULL, null=True, blank=True)
@@ -115,17 +116,21 @@ class User(AbstractUser):
 
     #is user is inistitution
     services_or_productions = models.JSONField(default=tuple, null=True)
-
+    is_organization = models.BooleanField(default=False)
+    
     verified = models.BooleanField(default=False)
 
     def __str__(self):
         return self.username
 
 
+
+
 # View Requests Model
 class ViewRequests(models.Model):
     issuer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='issued_requests')
     requested_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_requests')
+    
 
     def __str__(self):
         return f"{self.issuer} -> {self.requested_user}"

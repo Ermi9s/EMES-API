@@ -34,4 +34,8 @@ urlpatterns = [
     path('admin/user/manage/<str:action>/<int:user_id>/', UserManagementView.as_view(), name='user_management'),
 
     path('', include(router.urls)),
+
+    path('upload-receipt/', upload_receipt, name='upload_receipt'),
+    path('upload-degree/', upload_degree, name='upload_degree'),
+    path('upload-profile-picture/', upload_profile_picture, name='upload_profile_picture'),
 ]

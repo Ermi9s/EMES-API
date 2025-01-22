@@ -5,24 +5,37 @@ from .models import (
 )
 
 class UserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    address = serializers.PrimaryKeyRelatedField(queryset=Address.objects.all(), required=False)
+    contact = serializers.PrimaryKeyRelatedField(queryset=Contact.objects.all(), required=False)
+    education = serializers.PrimaryKeyRelatedField(queryset=Education.objects.all(), required=False)
+    professional_experience = serializers.PrimaryKeyRelatedField(queryset=ProfessionalExperience.objects.all(), required=False)
+    projects = serializers.PrimaryKeyRelatedField(queryset=Projects.objects.all(), required=False)
+    awards = serializers.PrimaryKeyRelatedField(queryset=Award.objects.all(), required=False)
+    publications = serializers.PrimaryKeyRelatedField(queryset=Publications.objects.all(), required=False)
+    patents = serializers.PrimaryKeyRelatedField(queryset=Patents.objects.all(), required=False)
+    payment = serializers.PrimaryKeyRelatedField(queryset=AnnualMembershipFee.objects.all(), required=False)
+
+    profile_picture = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'password', 'full_name', 'sex', 'date_of_birth', 
-            'nationality', 'address', 'contact', 
-            'education', 'professional_experience','services_or_productions',
-            'projects', 'awards', 'publications', 'patents', 
-            'payment', 'verified'
+            'id', 'username', 'full_name', 'sex', 'date_of_birth', 'nationality',
+            'profile_picture', 'address', 'contact', 'education', 'professional_experience',
+            'projects', 'awards', 'publications', 'patents', 'payment', 'verified','is_organization' 
         ]
-        extra_kwargs = {'password': {'write_only': True}}
+        read_only_fields = ['id', 'username']
 
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+    
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = '__all__'
-
 
 
 class ContactSerializer(serializers.ModelSerializer):
@@ -74,15 +87,14 @@ class AwardSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'awarding_body', 'year']
 
 
-class AnualMembershipFeeSerializer(serializers.ModelSerializer):
+class AnnualMembershipFeeSerializer(serializers.ModelSerializer):
     receipt_url = serializers.SerializerMethodField()
     class Meta:
         model = AnnualMembershipFee
         fields = ['id', 'receipt_url', 'status'] 
 
     def get_receipt_url(self, obj):
-        return obj.receipt.url if obj.receipt else None
-
+        return obj.receipt
 
 class ViewRequestsSerializer(serializers.ModelSerializer):
     class Meta:
