@@ -21,9 +21,10 @@ from .serializer import (
     ProfessionalExperienceSerializer, PublicationsSerializer, ProjectsSerializer,
     PatentsSerializer, AwardSerializer, AnualMembershipFeeSerializer,
 )
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
-
-
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_admin(request):
@@ -63,6 +64,7 @@ def register_admin(request):
     )
 
 
+@csrf_exempt
 @permission_classes([AllowAny])
 @api_view(['POST'])
 def register(request):
@@ -90,6 +92,7 @@ def register(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+@csrf_exempt
 @permission_classes([AllowAny])
 @api_view(['POST'])
 def login(request):
@@ -116,7 +119,8 @@ def login(request):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
-        
+
+@method_decorator(csrf_exempt, name='dispatch')
 class UserRegistrationUpdates(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class =  UserSerializer
@@ -182,7 +186,7 @@ def get_users(request, user_id=None):
         ]
         return Response(users_data, status=status.HTTP_200_OK)
 
-
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_view_request(request, user_id):
@@ -338,7 +342,7 @@ class UserManagementView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-
+@method_decorator(csrf_exempt, name='dispatch')
 class AddressViewSet(viewsets.ModelViewSet):
     queryset = Address.objects.all()
     serializer_class = AddressSerializer
@@ -351,7 +355,7 @@ class AddressViewSet(viewsets.ModelViewSet):
         address = serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class ContactViewSet(viewsets.ModelViewSet):
     queryset = Contact.objects.all()
     serializer_class = ContactSerializer
@@ -365,7 +369,7 @@ class ContactViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class EducationViewSet(viewsets.ModelViewSet):
     queryset = Education.objects.all()
     serializer_class = EducationSerializer
@@ -378,7 +382,7 @@ class EducationViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(education)
         return Response(serializer.data)
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class ProfessionalExperienceViewSet(viewsets.ModelViewSet):
     queryset = ProfessionalExperience.objects.all()
     serializer_class = ProfessionalExperienceSerializer
@@ -394,7 +398,7 @@ class ProfessionalExperienceViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         return Response({"error": "Organization parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class PublicationsViewSet(viewsets.ModelViewSet):
     queryset = Publications.objects.all()
     serializer_class = PublicationsSerializer
@@ -410,7 +414,7 @@ class PublicationsViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         return Response({"error": "Year parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class ProjectsViewSet(viewsets.ModelViewSet):
     queryset = Projects.objects.all()
     serializer_class = ProjectsSerializer
@@ -423,18 +427,18 @@ class ProjectsViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(active_projects, many=True)
         return Response(serializer.data)
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class PatentsViewSet(viewsets.ModelViewSet):
     queryset = Patents.objects.all()
     serializer_class = PatentsSerializer
     permission_classes = [IsOwnerOrAdmin]
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class AwardViewSet(viewsets.ModelViewSet):
     queryset = Award.objects.all()
     serializer_class = AwardSerializer
     permission_classes = [IsOwnerOrAdmin]
-
+@method_decorator(csrf_exempt, name='dispatch')
 class AnualMembershipFeeViewSet(viewsets.ModelViewSet):
     queryset = AnnualMembershipFee.objects.all()
     serializer_class = AnualMembershipFeeSerializer
