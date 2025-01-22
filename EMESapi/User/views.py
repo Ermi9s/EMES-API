@@ -33,7 +33,6 @@ def register_admin(request):
     username = request.data.get('username')
     password = request.data.get('password')
 
-    # Validate input data
     if not username  or not password:
         return Response(
             {"message": "Username and password are required."},
@@ -71,20 +70,25 @@ def register_admin(request):
 @api_view(['POST'])
 def register(request):
     if request.method == 'POST':
-        is_organization = request.query_params.get('organization', 'false').lower() == 'true'
 
-        request.data['is_organization'] = is_organization
-        
-        serializer = UserSerializer(data=request.data, partial=True)
+        data = request.data.copy()
+
+        is_organization = request.query_params.get('is_organization', 'false').lower() == 'true'
+        data['is_organization'] = is_organization  # Add or modify is_organization
+
+        serializer = UserSerializer(data=data, partial=True)
 
         if serializer.is_valid():
+
             password = serializer.validated_data.get('password')
             if password:
                 hashed_password = make_password(password)
                 serializer.validated_data['password'] = hashed_password
+
+        
             user = serializer.save()
 
-
+        
             token = Token.objects.create(user=user)
 
             return Response(
@@ -95,7 +99,6 @@ def register(request):
                 },
                 status=status.HTTP_201_CREATED
             )
-
         return Response(
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
