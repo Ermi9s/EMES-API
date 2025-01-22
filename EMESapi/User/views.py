@@ -70,25 +70,37 @@ def register_admin(request):
 @api_view(['POST'])
 def register(request):
     if request.method == 'POST':
-
+        # Make request.data mutable to modify it safely
         data = request.data.copy()
 
+        # Ensure 'username' is present in the data
+        if not data.get('username'):
+            return Response(
+                {"detail": "Username is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get the 'is_organization' query param, default to False
         is_organization = request.query_params.get('is_organization', 'false').lower() == 'true'
-        data['is_organization'] = is_organization  # Add or modify is_organization
+        
+        # If 'is_organization' isn't already in the validated data, add it to 'data'
+        if 'is_organization' not in data:
+            data['is_organization'] = is_organization
 
+        # Now pass the updated data to the serializer
         serializer = UserSerializer(data=data, partial=True)
 
         if serializer.is_valid():
-
+            # Handle password hashing if it exists
             password = serializer.validated_data.get('password')
             if password:
                 hashed_password = make_password(password)
                 serializer.validated_data['password'] = hashed_password
 
-        
+            # Create the user
             user = serializer.save()
 
-        
+            # Create a token for the user
             token = Token.objects.create(user=user)
 
             return Response(
@@ -99,11 +111,13 @@ def register(request):
                 },
                 status=status.HTTP_201_CREATED
             )
+
+        # If serializer is not valid, return errors
         return Response(
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
-
+    
 @csrf_exempt
 @permission_classes([AllowAny])
 @api_view(['POST'])
