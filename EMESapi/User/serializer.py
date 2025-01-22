@@ -87,7 +87,7 @@ class AwardSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'awarding_body', 'year']
 
 
-class AnnualMembershipFeeSerializer(serializers.ModelSerializer):
+class AnualMembershipFeeSerializer(serializers.ModelSerializer):
     receipt_url = serializers.SerializerMethodField()
     class Meta:
         model = AnnualMembershipFee
