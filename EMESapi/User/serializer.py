@@ -5,32 +5,10 @@ from .models import (
 )
 
 class UserSerializer(serializers.ModelSerializer):
-    address = serializers.PrimaryKeyRelatedField(queryset=Address.objects.all(), required=False)
-    contact = serializers.PrimaryKeyRelatedField(queryset=Contact.objects.all(), required=False)
-    education = serializers.PrimaryKeyRelatedField(queryset=Education.objects.all(), required=False)
-    professional_experience = serializers.PrimaryKeyRelatedField(queryset=ProfessionalExperience.objects.all(), required=False)
-    projects = serializers.PrimaryKeyRelatedField(queryset=Projects.objects.all(), required=False)
-    awards = serializers.PrimaryKeyRelatedField(queryset=Award.objects.all(), required=False)
-    publications = serializers.PrimaryKeyRelatedField(queryset=Publications.objects.all(), required=False)
-    patents = serializers.PrimaryKeyRelatedField(queryset=Patents.objects.all(), required=False)
-    payment = serializers.PrimaryKeyRelatedField(queryset=AnnualMembershipFee.objects.all(), required=False)
-
-    profile_picture = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = [
-            'id', 'username', 'full_name', 'sex', 'date_of_birth', 'nationality',
-            'profile_picture', 'address', 'contact', 'education', 'professional_experience',
-            'projects', 'awards', 'publications', 'patents', 'payment', 'verified','is_organization' 
-        ]
-        read_only_fields = ['id', 'username']
-
-    def update(self, instance, validated_data):
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
+        fields = '__all__'
     
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:

@@ -98,10 +98,9 @@ class AnnualMembershipFee(models.Model):
 
 # User Model
 class User(AbstractUser):
-    full_name = models.CharField(max_length=255)
-    sex = models.CharField(max_length=20)
-    date_of_birth = models.DateTimeField(null=True)
-    nationality = models.CharField(max_length=100)
+    sex = models.CharField(max_length=20,blank=True, null=True)
+    date_of_birth = models.DateTimeField(blank=True, null=True)
+    nationality = models.CharField(max_length=100, blank=True, null=True)
     profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
 
     address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, blank=True)
@@ -115,7 +114,7 @@ class User(AbstractUser):
     payment = models.ForeignKey(AnnualMembershipFee, on_delete=models.SET_NULL, null=True, blank=True)
 
     #is user is inistitution
-    services_or_productions = models.JSONField(default=tuple, null=True)
+    services_or_productions = models.JSONField(default=tuple, null=True , blank=True)
     is_organization = models.BooleanField(default=False)
     
     verified = models.BooleanField(default=False)

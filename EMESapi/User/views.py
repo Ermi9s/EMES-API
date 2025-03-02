@@ -65,40 +65,42 @@ def register_admin(request):
     )
 
 
-@csrf_exempt
 @permission_classes([AllowAny])
 @api_view(['POST'])
 def register(request):
+    print("called")    
     if request.method == 'POST':
+        print(request.data , "data")
         if not request.data.get('username'):
             return Response(
                 {"detail": "Username is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
 
         is_organization = request.query_params.get('is_organization', 'false').lower() == 'true'
-        
         serializer = UserSerializer(data=request.data, partial=True)
-
+    
         if serializer.is_valid():
             password = serializer.validated_data.get('password')
+       
             if password:
                 hashed_password = make_password(password)
                 serializer.validated_data['password'] = hashed_password
 
+            
+                
             user = serializer.save()
-
             user.is_organization = is_organization
             user.save()
 
             token = Token.objects.create(user=user)
 
+        
             return Response(
                 {
                     "token": token.key,
                     "user": serializer.data,
-                    "message": "User created successfully",
+                    "message": "User created successfwully",
                 },
                 status=status.HTTP_201_CREATED
             )
@@ -107,6 +109,11 @@ def register(request):
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
         )
+
+    return Response (
+        "Request failed",
+        status=status.HTTP_400_BAD_REQUEST
+    )
     
     
 @csrf_exempt
