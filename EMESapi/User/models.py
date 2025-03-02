@@ -125,7 +125,6 @@ class User(AbstractUser):
 
 
 
-
 # View Requests Model
 class ViewRequests(models.Model):
     issuer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='issued_requests')
@@ -134,7 +133,4 @@ class ViewRequests(models.Model):
 
     def __str__(self):
         return f"{self.issuer} -> {self.requested_user}"
-
-
-
 

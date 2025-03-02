@@ -307,7 +307,7 @@ def approve_request(request, request_id):
     send_mail(
         subject="Your Requested User Information",
         message='',
-        from_email=admin_email,
+        from_email=admin_email, # some email that works here this does not
         recipient_list=[issuer_email],
         html_message=html_body,
     )
