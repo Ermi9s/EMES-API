@@ -89,8 +89,8 @@ def register(request):
 
             user = serializer.save()
 
-            # user.is_organization = is_organization
-            # user.save()
+            user.is_organization = is_organization
+            user.save()
 
             token = Token.objects.create(user=user)
 
