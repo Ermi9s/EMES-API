@@ -24,14 +24,9 @@ class ContactSerializer(serializers.ModelSerializer):
 
 
 class EducationSerializer(serializers.ModelSerializer):
-    degree_file_url = serializers.SerializerMethodField()
-
     class Meta:
         model = Education
         fields = ['id', 'highest_degree', 'field_of_study', 'degree_file_url']
-
-    def get_degree_file_url(self, obj):
-        return obj.degree_file.url if obj.degree_file else None
 
 
 class ProfessionalExperienceSerializer(serializers.ModelSerializer):

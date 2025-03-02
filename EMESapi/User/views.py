@@ -67,10 +67,8 @@ def register_admin(request):
 
 @permission_classes([AllowAny])
 @api_view(['POST'])
-def register(request):
-    print("called")    
+def register(request): 
     if request.method == 'POST':
-        print(request.data , "data")
         if not request.data.get('username'):
             return Response(
                 {"detail": "Username is required."},
@@ -305,19 +303,19 @@ def approve_request(request, request_id):
         'patents': requested_user.patents,
     }
 
-    issuer_email = view_request.issuer.contact.email
-    admin_email = request.user.contact.email
+    # issuer_email = view_request.issuer.contact.email
+    # admin_email = request.user.contact.email
 
-    html_body = generate_html_email_body(full_info)
+    # html_body = generate_html_email_body(full_info)
 
 
-    send_mail(
-        subject="Your Requested User Information",
-        message='',
-        from_email=admin_email, # some email that works here this does not
-        recipient_list=[issuer_email],
-        html_message=html_body,
-    )
+    # send_mail(
+    #     subject="Your Requested User Information",
+    #     message='',
+    #     from_email=admin_email, # some email that works here this does not
+    #     recipient_list=[issuer_email],
+    #     html_message=html_body,
+    # )
 
     view_request.delete()
 
