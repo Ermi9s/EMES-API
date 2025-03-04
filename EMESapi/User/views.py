@@ -113,7 +113,6 @@ def register(request):
         status=status.HTTP_400_BAD_REQUEST
     )
     
-    
 @csrf_exempt
 @permission_classes([AllowAny])
 @api_view(['POST'])
