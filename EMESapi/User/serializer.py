@@ -25,7 +25,7 @@ class ContactSerializer(serializers.ModelSerializer):
 class EducationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Education
-        fields = ['id', 'highest_degree', 'field_of_study', 'degree_file_url']
+        fields = ['id', 'highest_degree', 'field_of_study', 'degree_file']
 
 
 class ProfessionalExperienceSerializer(serializers.ModelSerializer):
