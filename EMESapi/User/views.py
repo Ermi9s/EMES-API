@@ -142,7 +142,7 @@ def login(request):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
-@csrf_exempt
+
 @method_decorator(csrf_exempt, name='dispatch')
 class UserRegistrationUpdates(APIView):
     permission_classes = [IsAuthenticated]
