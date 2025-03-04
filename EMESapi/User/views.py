@@ -112,7 +112,6 @@ def register(request):
         status=status.HTTP_400_BAD_REQUEST
     )
     
-    
 
 @permission_classes([AllowAny])
 @api_view(['POST'])
