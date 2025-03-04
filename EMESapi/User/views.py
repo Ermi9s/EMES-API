@@ -65,6 +65,7 @@ def register_admin(request):
     )
 
 
+@csrf_exempt
 @permission_classes([AllowAny])
 @api_view(['POST'])
 def register(request): 
@@ -141,7 +142,7 @@ def login(request):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
-
+@csrf_exempt
 @method_decorator(csrf_exempt, name='dispatch')
 class UserRegistrationUpdates(APIView):
     permission_classes = [IsAuthenticated]
@@ -190,7 +191,7 @@ class UserRegistrationUpdates(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-
+@csrf_exempt
 @api_view(['GET'])
 def get_users(request, user_id=None):
     fields_to_return = ["id", "username", "full_name", "nationality" , "sex"]
@@ -254,6 +255,7 @@ def create_view_request(request, user_id):
     )
 
 
+@csrf_exempt
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def fetch_users(request, user_id=None):
@@ -281,6 +283,7 @@ def fetch_users(request, user_id=None):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+@csrf_exempt
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def approve_request(request, request_id):
@@ -324,6 +327,7 @@ def approve_request(request, request_id):
         status=status.HTTP_200_OK
     )
 
+@csrf_exempt
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def reject_request(request, request_id):
@@ -337,6 +341,7 @@ def reject_request(request, request_id):
     )
 
 
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_receipt(request):
@@ -361,6 +366,7 @@ def upload_receipt(request):
     return Response({'error': 'Invalid request'}, status=400)
 
 
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_degree(request):
@@ -385,7 +391,8 @@ def upload_degree(request):
     serializer = EducationSerializer(education)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    
+
+@csrf_exempt  
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_profile_picture(request):
@@ -409,6 +416,7 @@ def upload_profile_picture(request):
     return Response({'error': 'No profile picture provided'}, status=400)   
 
 
+@csrf_exempt
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def get_pending_receipts(request):
@@ -420,6 +428,7 @@ def get_pending_receipts(request):
     return Response(serializer.data, status=200)
 
 
+@csrf_exempt
 @api_view(['PATCH'])
 @permission_classes([IsAdminUser])
 def update_receipt_status(request, receipt_id):
@@ -434,6 +443,7 @@ def update_receipt_status(request, receipt_id):
     serializer = AnualMembershipFeeSerializer(fee)
     return Response(serializer.data, status=200)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class UserManagementView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_class = UserSerializer
